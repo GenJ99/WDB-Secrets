@@ -1,4 +1,5 @@
 //jshint esversion:6
+require('dotenv').config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
@@ -6,6 +7,9 @@ const mongoose = require("mongoose");
 const encrypt = require("mongoose-encryption");
 
 const app = express();
+
+// dotenv API key example writen to the command line
+console.log(process.env.API_KEY);
 
 app.set('view engine', 'ejs');
 app.use(express.static("public"));
@@ -25,10 +29,9 @@ const userSchema = new mongoose.Schema({
   password: String
 });
 
-// Create a secret to encrypt with, then create the nessessary plugin to execute for the Password
+// Create a dotenv secret to encrypt with, then create the nessessary plugin to execute for the Password
 // field.
-const secret = "Thisisourlittlesecret.";
-userSchema.plugin(encrypt, {secret: secret, encryptedFields: ["password"]});
+userSchema.plugin(encrypt, {secret: process.env.SECRET, encryptedFields: ["password"]});
 
 const User = new mongoose.model("User", userSchema);
 
@@ -60,6 +63,7 @@ app.post("/login", function(req, res) {
     }
   });
 });
+
 
 
 app.get("/register", function(req, res) {
