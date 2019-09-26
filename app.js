@@ -4,7 +4,10 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-const md5 = require("md5");
+
+// Data enryption with amount of times the hashing will be salted
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 
@@ -26,8 +29,6 @@ const userSchema = new mongoose.Schema({
   password: String
 });
 
-
-
 const User = new mongoose.model("User", userSchema);
 
 
@@ -43,18 +44,21 @@ app.get("/register", function(req, res) {
 });
 
 app.post("/register", function(req, res) {
-  const newUser = new User({
-    email: req.body.username,
-    // MD5 function turns the user password into an irreversible hash for increased security.
-    password: md5(req.body.password)
-  });
+  // Bcrypt wiht hash method that with hash the password, salt it, and will call the needed code back
+  // in a function. The hash parameter in the callback will equal the new password created.
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    const newUser = new User({
+      email: req.body.username,
+      password: hash
+    });
 
-  newUser.save(function(err) {
-    if (err) {
-      console.log(err);
-    } else {
-      res.render("secrets");
-    }
+    newUser.save(function(err) {
+      if (err) {
+        console.log(err);
+      } else {
+        res.render("secrets");
+      }
+    });
   });
 });
 
@@ -66,17 +70,23 @@ app.get("/login", function(req, res) {
 
 app.post("/login", function(req, res) {
   const userName = req.body.username;
-  // MD5 function used to match the login password to the register password in the database.
-  const password = md5(req.body.password);
+  const password = req.body.password;
 
-  User.findOne({email: userName}, function(err, foundUser) {
+  User.findOne({
+    email: userName
+  }, function(err, foundUser) {
+
     if (err) {
       console.log(err);
     } else {
+
       if (foundUser) {
-        if (foundUser.password === password) {
-          res.render("secrets");
-        }
+        // Comparing the login password to the password in the database with the compare() bcrypt method.
+        bcrypt.compare(password, foundUser.password, function(err, result) {
+          if (result === true) {
+            res.render("secrets");
+          }
+        });
       }
     }
   });
