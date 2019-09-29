@@ -1,3 +1,5 @@
+// Minimalist Version of the Wisper App
+
 //jshint esversion:6
 require('dotenv').config();
 const express = require("express");
@@ -45,7 +47,9 @@ passport.use(new GoogleStrategy({
   function(accessToken, refreshToken, profile, cb) {
     console.log(profile);
 
-    User.findOrCreate({ googleId: profile.id }, function (err, user) {
+    User.findOrCreate({
+      googleId: profile.id
+    }, function(err, user) {
       return cb(err, user);
     });
   }
@@ -63,7 +67,8 @@ mongoose.set("useCreateIndex", true);
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -90,6 +95,21 @@ passport.deserializeUser(function(id, done) {
   });
 });
 
+// Google authentication get requests
+app.get("/auth/google",
+  passport.authenticate('google', {
+    scope: ["profile"]
+  }));
+
+app.get("/auth/google/secrets",
+  passport.authenticate('google', {
+    failureRedirect: "/login"
+  }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
+
 
 
 app.get("/", function(req, res) {
@@ -98,24 +118,57 @@ app.get("/", function(req, res) {
 
 
 
-app.get("/auth/google",
-  passport.authenticate('google', { scope: ["profile"] }));
-
-  app.get("/auth/google/secrets",
-    passport.authenticate('google', { failureRedirect: "/login" }),
-    function(req, res) {
-      // Successful authentication, redirect home.
-      res.redirect('/secrets');
-    });
-
-
-
 app.get("/secrets", function(req, res) {
+  User.find({
+    "secret": {
+      $ne: null
+    }
+  }, function(err, foundUsers) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUsers) {
+        res.render("secrets", {
+          usersWithSecrets: foundUsers
+        });
+      }
+    }
+  });
+
+  // if (req.isAuthenticated()) {
+  //   res.render("secrets");
+  // } else {
+  //   res.redirect("/login");
+  // }
+});
+
+
+
+app.get("/submit", function(req, res) {
   if (req.isAuthenticated()) {
-    res.render("secrets");
+    res.render("submit");
   } else {
     res.redirect("/login");
   }
+});
+
+app.post("/submit", function(req, res) {
+  const submittedSecret = req.body.secret;
+
+  console.log(req.user.id);
+
+  User.findById(req.user.id, function(err, foundUser) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (foundUser) {
+        foundUser.secret = submittedSecret;
+        foundUser.save(function() {
+          res.redirect("/secrets");
+        });
+      }
+    }
+  });
 });
 
 
@@ -125,7 +178,9 @@ app.get("/register", function(req, res) {
 });
 
 app.post("/register", function(req, res) {
-  User.register({username: req.body.username}, req.body.password, function(err, user) {
+  User.register({
+    username: req.body.username
+  }, req.body.password, function(err, user) {
     if (err) {
       console.log(err);
       res.redirect("/register")
@@ -160,7 +215,7 @@ app.post("/login", function(req, res) {
   });
 });
 
-//Update
+
 
 app.get("/logout", function(req, res) {
   req.logout();
